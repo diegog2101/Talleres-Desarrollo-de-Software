@@ -1,0 +1,299 @@
+   private final String numero;
+    private final String titular;
+    private BigDecimal saldo;
+
+    public Cuenta(String numero, String titular, BigDecimal saldoInicial) {
+
+        if (saldoInicial.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException(
+                    "El saldo inicial no puede ser negativo"
+            );
+        }
+
+        this.numero = numero;
+        this.titular = titular;
+        this.saldo = saldoInicial;
+    }
+
+    public void depositar(BigDecimal monto) {
+
+        if (monto.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException(
+                    "El monto debe ser positivo"
+            );
+        }
+
+        this.saldo = this.saldo.add(monto);
+    }
+
+    public void debitar(BigDecimal monto) {
+
+        if (monto.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException(
+                    "El monto debe ser positivo"
+            );
+        }
+
+        if (monto.compareTo(this.saldo) > 0) {
+            throw new SaldoInsuficienteException(
+                    "Saldo: " + saldo + ", solicitado: " + monto
+            );
+        }
+
+        this.saldo = this.saldo.subtract(monto);
+    }
+
+    public BigDecimal getSaldo() {
+        return this.saldo;
+    }
+
+    public String getNumero() {
+        return this.numero;
+    }
+
+    public String getTitular() {
+        return this.titular;
+    }
+}
+
+class CuentaCorriente extends Cuenta {
+
+    private BigDecimal limiteDescubierto;
+
+    public CuentaCorriente(
+            String numero,
+            String titular,
+            BigDecimal saldoInicial,
+            BigDecimal limiteDescubierto
+    ) {
+        super(numero, titular, saldoInicial);
+        this.limiteDescubierto = limiteDescubierto;
+    }
+
+    @Override
+    public void debitar(BigDecimal monto) {
+
+        if (monto.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException(
+                    "El monto debe ser positivo"
+            );
+        }
+
+        BigDecimal saldoDisponible =
+                getSaldo().add(limiteDescubierto);
+
+        if (monto.compareTo(saldoDisponible) > 0) {
+            throw new SaldoInsuficienteException(
+                    "Supera el límite de descubierto"
+            );
+        }
+
+        if (monto.compareTo(getSaldo()) <= 0) {
+            super.debitar(monto);
+        } else {
+            BigDecimal diferencia =
+                    monto.subtract(getSaldo());
+
+            super.depositar(
+                    diferencia.negate()
+            );
+        }
+    }
+}
+
+class SaldoInsuficienteException extends RuntimeException {
+
+    public SaldoInsuficienteException(String mensaje) {
+        super(mensaje);
+    }
+}
+
+interface Pago {
+
+    void procesar(BigDecimal monto);
+
+    String getDescripcion();
+}
+
+class PagoTarjeta implements Pago {
+
+    private final String numeroTarjeta;
+
+    public PagoTarjeta(String numeroTarjeta) {
+        this.numeroTarjeta = numeroTarjeta;
+    }
+
+    @Override
+    public void procesar(BigDecimal monto) {
+
+        System.out.println(
+                "Cargando $" + monto +
+                " a la tarjeta " + numeroTarjeta
+        );
+    }
+
+    @Override
+    public String getDescripcion() {
+        return "Tarjeta " + numeroTarjeta;
+    }
+}
+
+class PagoTransferencia implements Pago {
+
+    private final String cbu;
+
+    public PagoTransferencia(String cbu) {
+        this.cbu = cbu;
+    }
+
+    @Override
+    public void procesar(BigDecimal monto) {
+
+        System.out.println(
+                "Transfiriendo $" + monto +
+                " al CBU " + cbu
+        );
+    }
+
+    @Override
+    public String getDescripcion() {
+        return "Transferencia a CBU " + cbu;
+    }
+}
+
+class PagoEfectivo implements Pago {
+
+    @Override
+    public void procesar(BigDecimal monto) {
+
+        System.out.println(
+                "Registrando pago en efectivo de $" + monto
+        );
+    }
+
+    @Override
+    public String getDescripcion() {
+        return "Efectivo";
+    }
+}
+
+class Pedido {
+
+    private final BigDecimal total;
+
+    public Pedido(BigDecimal total) {
+        this.total = total;
+    }
+
+    public BigDecimal getTotal() {
+        return total;
+    }
+}
+
+class CheckoutService {
+
+    public void finalizarCompra(
+            Pedido pedido,
+            Pago metodoDePago
+    ) {
+
+        metodoDePago.procesar(pedido.getTotal());
+
+        System.out.println(
+                "Compra finalizada. Método: " +
+                metodoDePago.getDescripcion()
+        );
+    }
+}
+
+
+public class Main {
+
+    public static void main(String[] args) {
+
+        Cuenta cuenta = new Cuenta(
+                "001",
+                "Diego",
+                new BigDecimal("100000")
+        );
+
+        System.out.println("Titular: " + cuenta.getTitular());
+        System.out.println("Saldo inicial: $" + cuenta.getSaldo());
+
+        cuenta.depositar(new BigDecimal("50000"));
+
+        System.out.println(
+                "Saldo después del depósito: $" +
+                cuenta.getSaldo()
+        );
+
+        cuenta.debitar(new BigDecimal("30000"));
+
+        System.out.println(
+                "Saldo después del débito: $" +
+                cuenta.getSaldo()
+        );
+
+
+        System.out.println("\n--- CUENTA CORRIENTE ---");
+
+        CuentaCorriente cuentaCorriente = new CuentaCorriente(
+                "002",
+                "Diego",
+                new BigDecimal("100000"),
+                new BigDecimal("50000")
+        );
+
+        System.out.println(
+                "Saldo inicial: $" +
+                cuentaCorriente.getSaldo()
+        );
+
+        cuentaCorriente.debitar(
+                new BigDecimal("120000")
+        );
+
+        System.out.println(
+                "Saldo después del débito: $" +
+                cuentaCorriente.getSaldo()
+        );
+
+
+        System.out.println("\n--- MÉTODOS DE PAGO ---");
+
+        Pedido pedido = new Pedido(
+                new BigDecimal("75000")
+        );
+
+        CheckoutService checkout =
+                new CheckoutService();
+
+        Pago pago1 =
+                new PagoTarjeta("1234-5678");
+
+        Pago pago2 =
+                new PagoTransferencia("987654321");
+
+        Pago pago3 =
+                new PagoEfectivo();
+
+        checkout.finalizarCompra(
+                pedido,
+                pago1
+        );
+
+        System.out.println();
+
+        checkout.finalizarCompra(
+                pedido,
+                pago2
+        );
+
+        System.out.println();
+
+        checkout.finalizarCompra(
+                pedido,
+                pago3
+        );
+    }
+}
