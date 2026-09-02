@@ -1,0 +1,462 @@
+from abc import ABC, abstractmethod
+from datetime import date, datetime
+from itertools import count
+from typing import List, Optional
+class SaldoInsuficienteError(Exception):
+    """Se lanza cuando una cuenta no tiene fondos/cupo suficiente."""
+
+class FacturaNoPagableError(Exception):
+    """Se lanza cuando se intenta pagar una factura que no esta pendiente/vencida."""
+
+class RegistroNoEncontradoError(Exception):
+    """Se lanza cuando se busca un registro (cliente, cuenta, factura) que no existe."""
+
+class ClienteConCuentasActivasError(Exception):
+    """RN-02: no se puede eliminar un cliente con cuentas activas con saldo."""
+
+class CuentaConSaldoError(Exception):
+    """RN-06: no se puede eliminar una cuenta con saldo distinto de cero."""
+
+class FacturaYaPagadaError(Exception):
+    """RN-08: no se puede eliminar/editar una factura que ya fue pagada."""
+
+class PagoYaReversadoError(Exception):
+    """RN-11: no se puede reversar un pago que ya fue reversado antes."""
+
+class Cliente:
+    _contador = count(1)
+    def __init__(self, nombre: str, documento: str, correo: str,
+        direccion: str = "", telefono: str = ""):
+        self.id = next(Cliente._contador)
+        self._nombre = nombre
+        self._documento = documento
+        self._correo = correo
+        self._direccion = direccion
+        self._telefono = telefono
+        self._activo = True
+
+    @property
+    def nombre(self) -> str:
+        return self._nombre
+
+    @property
+    def documento(self) -> str:
+        return self._documento
+
+    @property
+    def correo(self) -> str:
+        return self._correo
+
+    @correo.setter
+    def correo(self, nuevo_correo: str):
+        if "@" not in nuevo_correo:
+            raise ValueError("Correo invalido")
+        self._correo = nuevo_correo
+        
+    @property
+    def direccion(self) -> str:
+        return self._direccion
+    @direccion.setter
+    def direccion(self, nueva_direccion: str):
+        if not nueva_direccion.strip():
+            raise ValueError("La direccion no puede estar vacia")
+        self._direccion = nueva_direccion
+
+    @property
+    def telefono(self) -> str:
+        return self._telefono
+    @telefono.setter
+    def telefono(self, nuevo_telefono: str):
+        if not nuevo_telefono.isdigit():
+            raise ValueError("El telefono debe contener solo digitos")
+        self._telefono = nuevo_telefono
+    @property
+    def activo(self) -> bool:
+        return self._activo
+    def inactivar(self):
+        self._activo = False
+    def __repr__(self):
+        return f"Cliente(id={self.id}, nombre='{self._nombre}', activo={self._activo})"
+class Cuenta(ABC):
+    _contador = count(1000)
+    def __init__(self, cliente: Cliente, saldo_inicial: float = 0.0):
+        if not cliente.activo:
+            raise ValueError("No es posible crear una cuenta para un cliente inactivo")
+        self.numero_cuenta = next(Cuenta._contador)
+        self.cliente = cliente
+        self._saldo = saldo_inicial
+        self._activa = True
+    @property
+    def saldo(self) -> float:
+        return self._saldo
+
+    @property
+    def activa(self) -> bool:
+        return self._activa
+
+    def depositar(self, monto: float):
+        if monto <= 0:
+            raise ValueError("El monto a depositar debe ser positivo")
+        self._saldo += monto
+
+    @abstractmethod
+    def retirar(self, monto: float):
+        raise NotImplementedError
+
+    @abstractmethod
+    def saldo_disponible(self) -> float:
+        raise NotImplementedError
+
+    @abstractmethod
+    def actualizar_condiciones(self, **kwargs):
+        raise NotImplementedError
+
+    def eliminar(self):
+        
+        if self._saldo != 0:
+            raise CuentaConSaldoError(
+                "No se puede eliminar la cuenta: el saldo debe ser cero"
+            )
+        self._activa = False
+
+    def __repr__(self):
+        return f"{type(self).__name__}(numero={self.numero_cuenta}, saldo={self._saldo:.2f})"
+
+class CuentaAhorros(Cuenta):
+    def __init__(self, cliente: Cliente, saldo_inicial: float = 0.0,
+        tasa_interes: float = 0.02):
+        super().__init__(cliente, saldo_inicial)
+        self.tasa_interes = tasa_interes
+
+    def retirar(self, monto: float):
+        
+        if monto <= 0:
+            raise ValueError("El monto a retirar debe ser positivo")
+        if monto > self._saldo:
+            raise SaldoInsuficienteError(
+                f"Saldo insuficiente en cuenta de ahorros {self.numero_cuenta}"
+            )
+        self._saldo -= monto
+
+    def saldo_disponible(self) -> float:
+        return self._saldo
+
+    def actualizar_condiciones(self, **kwargs):
+        if "tasa_interes" in kwargs:
+            nueva_tasa = kwargs["tasa_interes"]
+            if nueva_tasa < 0:
+                raise ValueError("La tasa de interes no puede ser negativa")
+            self.tasa_interes = nueva_tasa
+
+class CuentaCorriente(Cuenta):
+    def __init__(self, cliente: Cliente, saldo_inicial: float = 0.0,
+        cupo_sobregiro: float = 100_000):
+        super().__init__(cliente, saldo_inicial)
+        self.cupo_sobregiro = cupo_sobregiro
+
+    def retirar(self, monto: float):
+        if monto <= 0:
+            raise ValueError("El monto a retirar debe ser positivo")
+        if monto > self._saldo + self.cupo_sobregiro:
+            raise SaldoInsuficienteError(
+                f"Cupo insuficiente en cuenta corriente {self.numero_cuenta}"
+            )
+        self._saldo -= monto
+    def saldo_disponible(self) -> float:
+        return self._saldo + self.cupo_sobregiro
+    def actualizar_condiciones(self, **kwargs):
+        if "cupo_sobregiro" in kwargs:
+            nuevo_cupo = kwargs["cupo_sobregiro"]
+            if nuevo_cupo < 0:
+                raise ValueError("El cupo de sobregiro no puede ser negativo")
+            self.cupo_sobregiro = nuevo_cupo
+
+class Factura:
+    _contador = count(1)
+
+    def __init__(self, cliente: Cliente, servicio: str, monto: float,
+            fecha_vencimiento: date):
+        self.id = next(Factura._contador)
+        self.cliente = cliente
+        self.servicio = servicio
+        self.monto = monto
+        self.fecha_vencimiento = fecha_vencimiento
+        self._estado = "pendiente"
+
+    @property
+    def estado(self) -> str:
+        return self._estado
+
+    def marcar_pagada(self):
+        self._estado = "pagada"
+
+    def marcar_pendiente(self):
+        self._estado = "pendiente"
+
+    def __repr__(self):
+        return (f"Factura(id={self.id}, servicio='{self.servicio}', "
+                f"monto={self.monto:.2f}, estado='{self._estado}')")
+
+class Pago:
+    _contador = count(1)
+
+    def __init__(self, factura: Factura, cuenta: Cuenta, monto: float):
+        self.id = next(Pago._contador)
+        self.factura = factura
+        self.cuenta = cuenta
+        self.monto = monto
+        self.fecha = datetime.now()
+        self.estado = "exitoso"
+    def __repr__(self):
+        return (f"Pago(id={self.id}, factura={self.factura.id}, "
+                f"cuenta={self.cuenta.numero_cuenta}, monto={self.monto:.2f}, "
+                f"estado='{self.estado}')")
+
+class SistemaPagos:
+    def __init__(self):
+        self._clientes: List[Cliente] = []
+        self._cuentas: List[Cuenta] = []
+        self._facturas: List[Factura] = []
+        self._pagos: List[Pago] = []
+    
+    # Cliente (CU-01)
+    
+    def registrar_cliente(self, cliente: Cliente) -> Cliente:
+        if any(c.documento == cliente.documento for c in self._clientes):
+            raise ValueError("El cliente ya se encuentra registrado")
+        self._clientes.append(cliente)
+        return cliente
+    def consultar_cliente(self, documento: str) -> Cliente:
+        for c in self._clientes:
+            if c.documento == documento:
+                return c
+        raise RegistroNoEncontradoError(f"Cliente con documento {documento} no encontrado")
+    def actualizar_cliente(self, cliente: Cliente, direccion: Optional[str] = None,
+                            telefono: Optional[str] = None,
+                            correo: Optional[str] = None) -> Cliente:
+        if direccion is not None:
+            cliente.direccion = direccion
+        if telefono is not None:
+            cliente.telefono = telefono
+        if correo is not None:
+            cliente.correo = correo
+        return cliente
+    def eliminar_cliente(self, cliente: Cliente) -> Cliente:
+        
+        cuentas_con_saldo = [
+            c for c in self._cuentas
+            if c.cliente.id == cliente.id and c.activa and c.saldo != 0
+        ]
+        if cuentas_con_saldo:
+            raise ClienteConCuentasActivasError(
+                "No es posible eliminar el cliente: tiene cuentas activas con saldo"
+            )
+        cliente.inactivar()
+        return cliente
+    
+    #Cuenta (CU-02 y CU-03: ahorros y corriente comparten las mismas operaciones porque ambas son 'Cuenta')
+    
+    def registrar_cuenta(self, cuenta: Cuenta) -> Cuenta:
+        self._cuentas.append(cuenta)
+        return cuenta
+    def consultar_cuenta(self, numero_cuenta: int) -> Cuenta:
+        return self._buscar_cuenta(numero_cuenta)
+
+    def actualizar_cuenta(self, cuenta: Cuenta, **kwargs) -> Cuenta:
+        cuenta.actualizar_condiciones(**kwargs)
+        return cuenta
+
+    def eliminar_cuenta(self, cuenta: Cuenta) -> Cuenta:
+        cuenta.eliminar()
+        return cuenta
+
+    
+    #Factura (CU-04)
+    
+    def registrar_factura(self, factura: Factura) -> Factura:
+        self._facturas.append(factura)
+        return factura
+
+    def consultar_factura(self, factura_id: int) -> Factura:
+        for f in self._facturas:
+            if f.id == factura_id:
+                return f
+        raise RegistroNoEncontradoError(f"Factura {factura_id} no encontrada")
+
+    def actualizar_factura(self, factura: Factura, monto: Optional[float] = None,
+                            fecha_vencimiento: Optional[date] = None) -> Factura:
+        if factura.estado != "pendiente":
+            raise FacturaYaPagadaError(
+                "Solo se pueden editar facturas en estado 'pendiente'"
+            )
+        if monto is not None:
+            factura.monto = monto
+        if fecha_vencimiento is not None:
+            factura.fecha_vencimiento = fecha_vencimiento
+        return factura
+
+    def eliminar_factura(self, factura: Factura):
+        
+        if factura.estado == "pagada":
+            raise FacturaYaPagadaError("No es posible eliminar una factura pagada")
+        self._facturas.remove(factura)
+
+    
+    # Pago: no tiene Update/delete directo (RN-11) -> se reversa (CU-05)
+    
+    def reversar_pago(self, pago: Pago) -> Pago:
+        if pago.estado == "reversado":
+            raise PagoYaReversadoError("El pago ya fue reversado previamente")
+        pago.cuenta.depositar(pago.monto)
+        pago.factura.marcar_pendiente()
+        return pago
+
+    # CU-06: Procesar Pago
+    
+    def procesar_pago(self, factura: Factura, cuenta: Cuenta) -> Pago:
+        
+        if factura.estado not in ("pendiente", "vencida"):
+            raise FacturaNoPagableError(
+                f"La factura {factura.id} no esta en estado pagable "
+                f"(estado actual: {factura.estado})"
+            )
+        cuenta.retirar(factura.monto)
+        factura.marcar_pagada()
+        pago = Pago(factura=factura, cuenta=cuenta, monto=factura.monto)
+        self._pagos.append(pago)
+        return pago
+
+    
+    # CU-07: Obtener Saldo de Cuenta
+    
+    def obtener_saldo_cuenta(self, numero_cuenta: int) -> float:
+        cuenta = self._buscar_cuenta(numero_cuenta)
+        return cuenta.saldo_disponible()
+
+    
+    # CU-08: Obtener Pagos por Cliente
+    
+    def obtener_pagos_por_cliente(self, cliente: Cliente) -> List[Pago]:
+        return [p for p in self._pagos if p.cuenta.cliente.id == cliente.id]
+
+    
+    # CU-09: Obtener Facturas por Cliente
+    
+    def obtener_facturas_por_cliente(self, cliente: Cliente) -> List[Factura]:
+        return [f for f in self._facturas if f.cliente.id == cliente.id]
+
+    
+    def _buscar_cuenta(self, numero_cuenta: int) -> Cuenta:
+        for c in self._cuentas:
+            if c.numero_cuenta == numero_cuenta:
+                return c
+        raise RegistroNoEncontradoError(f"Cuenta {numero_cuenta} no encontrada")
+
+
+
+if __name__ == "__main__":
+    sistema = SistemaPagos()
+
+    diego = sistema.registrar_cliente(Cliente("Diego Garzon", "CC-123", "diego@mail.com",
+        direccion="Calle 10 #5-20", telefono="3001234567"))
+
+    
+    cuenta_ahorros = sistema.registrar_cuenta(
+        CuentaAhorros(diego, saldo_inicial=50_000, tasa_interes=0.03)
+    )
+    cuenta_corriente = sistema.registrar_cuenta(
+        CuentaCorriente(diego, saldo_inicial=10_000, cupo_sobregiro=30_000)
+    )
+
+    # ---- Factura: Create ----
+    factura_agua = sistema.registrar_factura(
+        Factura(diego, "Acueducto", 40_000, date(2026, 9, 15))
+    )
+    factura_luz = sistema.registrar_factura(
+        Factura(diego, "Energia", 25_000, date(2026, 9, 20))
+    )
+
+    print("Estado inicial")
+    print(cuenta_ahorros, "-> disponible:", cuenta_ahorros.saldo_disponible())
+    print(cuenta_corriente, "-> disponible:", cuenta_corriente.saldo_disponible())
+
+    print("\n Procesando pagos")
+    pago1 = sistema.procesar_pago(factura_agua, cuenta_ahorros)
+    print("Pago realizado:", pago1)
+
+    pago2 = sistema.procesar_pago(factura_luz, cuenta_corriente)
+    print("Pago realizado:", pago2)
+
+    print("\n Estado despues de pagar")
+    print(cuenta_ahorros, "-> disponible:", cuenta_ahorros.saldo_disponible())
+    print(cuenta_corriente, "-> disponible:", cuenta_corriente.saldo_disponible())
+
+    
+    print("\n CU-07: obtener_saldo_cuenta")
+    print("Saldo cuenta corriente:", sistema.obtener_saldo_cuenta(cuenta_corriente.numero_cuenta))
+
+    print("\n CU-08: obtener_pagos_por_cliente")
+    for p in sistema.obtener_pagos_por_cliente(diego):
+        print(" -", p)
+
+    print("\n CU-09: obtener_facturas_por_cliente ")
+    for f in sistema.obtener_facturas_por_cliente(diego):
+        print(" -", f)
+
+    print("\n\n DEMOSTRACION CRUD")
+
+    
+    print("\n CRUD Cliente")
+    encontrado = sistema.consultar_cliente("CC-123")
+    print("Consultar cliente:", encontrado)
+
+    sistema.actualizar_cliente(encontrado, telefono="3009999999")
+    print("Actualizar cliente (nuevo telefono):", encontrado.telefono)
+
+    try:
+        sistema.eliminar_cliente(diego)
+    except ClienteConCuentasActivasError as e:
+        print("Error controlado (esperado):", e)
+        
+    print("\n CRUD Cuenta")
+    print("Consultar cuenta:", sistema.consultar_cuenta(cuenta_ahorros.numero_cuenta))
+    sistema.actualizar_cuenta(cuenta_ahorros, tasa_interes=0.05)
+    sistema.actualizar_cuenta(cuenta_corriente, cupo_sobregiro=50_000)
+    print("Nueva tasa de interes (ahorros):", cuenta_ahorros.tasa_interes)
+    print("Nuevo cupo de sobregiro (corriente):", cuenta_corriente.cupo_sobregiro)
+    
+    try:
+        sistema.eliminar_cuenta(cuenta_ahorros)
+    except CuentaConSaldoError as e:
+        print("Error controlado (esperado):", e)
+    cuenta_vacia = sistema.registrar_cuenta(CuentaAhorros(diego, saldo_inicial=0))
+    sistema.eliminar_cuenta(cuenta_vacia)
+    
+    print("Cuenta vacia eliminada correctamente. Activa =", cuenta_vacia.activa)
+    print("\n CRUD Factura")
+    print("Consultar factura:", sistema.consultar_factura(factura_agua.id))
+    factura_gas = sistema.registrar_factura(Factura(diego, "Gas", 15_000, date(2026, 10, 1)))
+    sistema.actualizar_factura(factura_gas, monto=16_500)
+    print("Factura de gas actualizada:", factura_gas)
+    
+    try:
+        sistema.eliminar_factura(factura_agua)
+    except FacturaYaPagadaError as e:
+        print("Error controlado (esperado):", e)
+    sistema.eliminar_factura(factura_gas)
+    print("Factura de gas eliminada correctamente.")
+    print("\n Reversar Pago")
+    print("Antes de reversar -> saldo ahorros:", cuenta_ahorros.saldo, "| estado factura agua:", factura_agua.estado)
+    sistema.reversar_pago(pago1)
+    print("Despues de reversar -> saldo ahorros:", cuenta_ahorros.saldo, "| estado factura agua:", factura_agua.estado)
+    
+    try:
+        sistema.reversar_pago(pago1)
+    except PagoYaReversadoError as e:
+        print("Error controlado (esperado):", e)
+    
+    print("\n Probando que Cuenta es abstracta")
+    try:
+        Cuenta(diego, 1000)
+    except TypeError as e:
+        print("Error controlado (correcto, Cuenta es abstracta):", e)
