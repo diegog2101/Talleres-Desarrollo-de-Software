@@ -1,0 +1,453 @@
+CASOS DE USO 
+
+
+ID: CU-01 
+
+Nombre: Gestionar Cliente
+
+Actor primario: Empleado de atención al cliente / Administrador del sistema 
+
+Actores secundarios: Ninguno
+
+Precondiciones:
+
+El actor está autenticado en el sistema con permisos de gestión de clientes.
+
+Postcondiciones (éxito):
+
+El cliente queda registrado, actualizado o marcado como inactivo según la operación realizada.
+El sistema mantiene un identificador único por cliente.
+
+Flujo principal (Registrar cliente):
+
+1.El actor selecciona la opción "Nuevo cliente".
+2.El actor ingresa los datos del cliente (nombre, documento, dirección, teléfono, correo).
+3.El sistema valida que el número de documento no esté duplicado.
+4.El sistema valida el formato de los datos obligatorios.
+5.El sistema registra el cliente y le asigna un ID único.
+6.El sistema muestra un mensaje de confirmación de registro exitoso.
+
+Flujos alternativos:
+
+3a. Consultar cliente existente:
+ 3a.1 El actor selecciona "Buscar cliente".
+ 3a.2 El actor ingresa un criterio de búsqueda (documento o nombre).
+ 3a.3El sistema muestra el o los clientes que coinciden.
+ 3a.4El caso de uso termina o retorna al flujo principal.
+5a. Actualizar datos de un cliente:
+ 5a.1 El actor selecciona un cliente existente y la opción "Editar".
+ 5a.2 El actor modifica los campos permitidos (dirección, teléfono, correo).
+ 5a.3 El sistema valida los nuevos datos.
+ 5a.4 El sistema guarda los cambios y confirma la actualización.
+5b. Eliminar (inactivar) cliente:
+ 5b.1 El actor selecciona un cliente y la opción "Eliminar".
+ 5b.2 El sistema valida que el cliente no tenga cuentas activas con saldo (RN-02).
+ 5b.3 El sistema marca el cliente como inactivo.
+ 5b.4 El sistema confirma la eliminación.
+
+Excepciones:
+
+3b. Documento duplicado: el sistema informa "El cliente ya se encuentra registrado" y cancela la operación de registro.
+5b-exc. Cliente con cuentas activas: el sistema informa "No es posible eliminar el cliente: tiene cuentas activas con saldo" y cancela la eliminación.
+
+Reglas de negocio referenciadas:
+
+RN-01: El documento de identidad del cliente debe ser único.
+RN-02: No se puede eliminar un cliente con cuentas activas o saldo pendiente.
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+ID: CU-02: 
+
+Nombre: Gestionar Cuenta de Ahorros
+
+Actor primario: Empleado / Administrador del sistema 
+
+Actores secundarios: Ninguno
+
+Precondiciones:
+
+El actor está autenticado con permisos de gestión de cuentas.
+El cliente asociado existe y está activo (RN-13).
+
+Postcondiciones (éxito):
+
+La cuenta de ahorros queda creada, actualizada o eliminada según la operación.
+Toda cuenta creada tiene un número único (RN-03).
+
+Flujo principal (Crear cuenta de ahorros):
+
+1.El actor selecciona "Nueva cuenta de ahorros".
+2.El actor selecciona el cliente titular.
+3.El actor ingresa el saldo inicial y la tasa de interés aplicable.
+4.El sistema valida que el cliente exista y esté activo.
+5.El sistema genera el número de cuenta único.
+6.El sistema registra la cuenta y muestra confirmación.
+
+Flujos alternativos:
+
+1a. Consultar cuenta de ahorros:
+ 1a.1 El actor busca por número de cuenta o por cliente.
+ 1a.2 El sistema muestra los datos de la cuenta (saldo, estado, titular).
+6a. Actualizar cuenta de ahorros:
+ 6b.1 El actor selecciona una cuenta existente y "Editar".
+ 6b.2 El actor modifica datos permitidos (p. ej. tasa de interés, límite de retiros).
+ 6b.3 El sistema valida y guarda los cambios.
+6b. Eliminar cuenta de ahorros:
+ 6b.1 El actor selecciona una cuenta y "Eliminar".
+ 6b.2 El sistema valida que el saldo sea igual a cero (RN-06).
+ 6b.3 El sistema elimina o inactiva la cuenta y confirma.
+
+Excepciones:
+
+4a. Cliente inexistente o inactivo: el sistema informa "No es posible crear la cuenta: cliente no válido" y cancela.
+6b-exc. Saldo distinto de cero: el sistema informa "No es posible eliminar la cuenta: el saldo debe ser cero" y cancela la eliminación.
+
+Reglas de negocio referenciadas:
+
+RN-03: El número de cuenta es único y se genera automáticamente.
+RN-04: Una cuenta de ahorros no puede tener saldo negativo.
+RN-06: No se puede eliminar una cuenta con saldo diferente de cero.
+RN-13: Toda cuenta debe estar asociada a un cliente existente y activo.
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+ID: CU-03: 
+
+Nombre: Gestionar Cuenta Corriente
+
+Actor primario: Empleado / Administrador del sistema Actores secundarios: Ninguno
+
+Precondiciones:
+
+El actor está autenticado con permisos de gestión de cuentas.
+El cliente asociado existe y está activo (RN-13).
+
+Postcondiciones (éxito):
+
+La cuenta corriente queda creada, actualizada o eliminada según la operación.
+
+Flujo principal (Crear cuenta corriente):
+
+1.El actor selecciona "Nueva cuenta corriente".
+2.El actor selecciona el cliente titular.
+3.El actor ingresa el saldo inicial y el cupo de sobregiro autorizado.
+4.El sistema valida que el cliente exista y esté activo.
+5.El sistema genera el número de cuenta único.
+6.El sistema registra la cuenta y muestra confirmación.
+
+Flujos alternativos:
+
+1a. Consultar cuenta corriente:
+ 1a.1 El actor busca por número de cuenta o por cliente.
+ 1a.2 El sistema muestra los datos de la cuenta, incluyendo cupo de sobregiro disponible.
+6a. Actualizar cuenta corriente:
+ 6a.1 El actor selecciona una cuenta existente y "Editar".
+ 6a.2 El actor modifica el cupo de sobregiro autorizado.
+ 6a.3 El sistema valida y guarda los cambios.
+6b. Eliminar cuenta corriente:
+ 6b.1 El actor selecciona una cuenta y "Eliminar".
+ 6b.2 El sistema valida que el saldo sea igual a cero (RN-06).
+ 6b.3 El sistema elimina o inactiva la cuenta y confirma.
+
+Excepciones:
+
+4a. Cliente inexistente o inactivo: el sistema informa "No es posible crear la cuenta: cliente no válido" y cancela.
+6b-exc. Saldo pendiente distinto de cero (incluye sobregiro utilizado): el sistema informa "No es posible eliminar la cuenta: existe saldo o sobregiro pendiente" y cancela.
+
+Reglas de negocio referenciadas:
+
+RN-03: El número de cuenta es único y se genera automáticamente.
+RN-05: Una cuenta corriente puede tener saldo negativo hasta el cupo de sobregiro autorizado.
+RN-06: No se puede eliminar una cuenta con saldo diferente de cero.
+RN-13: Toda cuenta debe estar asociada a un cliente existente y activo.
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+ID:CU-04: 
+
+Nombre: Gestionar Factura
+
+Actor primario: Empleado / Administrador del sistema
+
+Actores secundarios: Sistema de facturación de la empresa de servicios (externo, opcional)
+
+Precondiciones:
+
+El actor está autenticado con permisos de gestión de facturas.
+El cliente asociado existe (RN-07).
+
+Postcondiciones (éxito):
+
+La factura queda registrada, actualizada o eliminada según la operación.
+
+Flujo principal (Registrar factura):
+
+1.El actor selecciona "Nueva factura".
+2.El actor ingresa el cliente asociado, el tipo de servicio, el monto y la fecha de vencimiento.
+3.El sistema valida que el cliente exista.
+4.El sistema registra la factura con estado "pendiente".
+5.El sistema muestra confirmación del registro.
+
+Flujos alternativos:
+
+1a. Consultar factura:
+ 1a.1 El actor busca por número de factura o por cliente.
+ 1a.2 El sistema muestra los datos y el estado de la factura.
+5a. Actualizar factura:
+ 5a.1 El actor selecciona una factura en estado "pendiente" y "Editar".
+ 5a.2 El actor modifica datos permitidos (monto, fecha de vencimiento).
+ 5a.3 El sistema valida y guarda los cambios.
+5b. Eliminar factura:
+ 5b.1 El actor selecciona una factura y "Eliminar".
+ 5b.2 El sistema valida que la factura no esté pagada (RN-08).
+ 5b.3 El sistema elimina la factura y confirma.
+
+Excepciones:
+
+3a. Cliente inexistente: el sistema informa "No es posible registrar la factura: cliente no encontrado" y cancela.
+5b-exc. Factura ya pagada: el sistema informa "No es posible eliminar una factura pagada" y cancela la eliminación.
+
+Reglas de negocio referenciadas:
+
+RN-07: Toda factura debe estar asociada a un cliente existente.
+RN-08: No se puede eliminar una factura que ya fue pagada.
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+ID: CU-05: 
+
+Nombre: Gestionar Pago
+
+Actor primario: Empleado / Administrador del sistema
+
+Actores secundarios: Ninguno
+
+Precondiciones:
+
+El actor está autenticado con permisos de gestión de pagos.
+Existe al menos un registro de pago para consultar, actualizar o eliminar (según la operación).
+
+Postcondiciones (éxito):
+
+El pago queda registrado o consultado; su eliminación directa está restringida por regla de negocio (RN-11).
+
+Flujo principal (Consultar pago):
+
+Nota: el registro de un pago no se hace manualmente aquí, sino a través del caso de uso CU-06 "Procesar Pago", que es el que efectivamente crea el pago. Este caso de uso cubre la consulta, corrección de datos no financieros y reversión administrativa.
+
+1. El actor selecciona "Consultar pagos".
+2. El actor ingresa un criterio de búsqueda (número de factura, cliente o rango de fechas).
+3. El sistema muestra los pagos que coinciden con el criterio, incluyendo su estado.
+
+Flujos alternativos:
+
+3a. Actualizar observaciones de un pago:
+ 3a.1 El actor selecciona un pago existente y "Editar".
+ 3a.2 El actor modifica campos no financieros (p. ej. observaciones internas).
+ 3a.3 El sistema valida y guarda los cambios (el monto y la fecha del pago no son editables).
+3b. Reversar un pago (equivalente controlado a "eliminar"):
+ 3b.1 El actor selecciona un pago en estado "exitoso" y la opción "Reversar".
+ 3b.2 El sistema valida que el pago no haya sido reversado previamente.
+ 3b.3 El sistema devuelve el monto a la cuenta origen y marca la factura como "pendiente" nuevamente.
+ 3b.4 El sistema marca el pago como "reversado" y confirma la operación.
+
+Excepciones:
+
+3-exc. Sin resultados: el sistema informa "No se encontraron pagos con los criterios ingresados".
+3b-exc. Pago ya reversado: el sistema informa "El pago ya fue reversado previamente" y cancela la operación.
+
+Reglas de negocio referenciadas:
+
+RN-09: Un pago solo puede procesarse sobre una factura en estado "pendiente" o "vencida".
+RN-11: Un pago no puede eliminarse directamente; únicamente puede reversarse.
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+ID: CU-06: 
+
+Nombre: Procesar Pago
+
+Actores secundarios: Sistema de notificaciones
+
+Precondiciones:
+
+El cliente está autenticado en el sistema.
+La factura a pagar existe y se encuentra en estado "pendiente" o "vencida" (RN-09).
+La cuenta origen pertenece al cliente y tiene saldo o cupo de sobregiro suficiente (RN-12).
+
+Postcondiciones (éxito):
+
+El saldo de la cuenta origen disminuye en el monto pagado.
+La factura cambia su estado a "pagada".
+Se registra un nuevo pago asociado a la factura y a la cuenta origen.
+Se envía una notificación de confirmación al cliente.
+
+Flujo principal:
+
+1.El cliente selecciona la factura que desea pagar.
+2.El cliente selecciona la cuenta origen del pago (ahorros o corriente).
+3.El sistema muestra el monto total a pagar y solicita confirmación.
+4.El cliente confirma la operación.
+5.El sistema valida que la cuenta origen tenga saldo o cupo suficiente.
+6.El sistema descuenta el monto de la cuenta origen.
+7.El sistema actualiza el estado de la factura a "pagada".
+8.El sistema registra el pago con fecha, monto, factura y cuenta asociada.
+9.El sistema envía notificación de confirmación al cliente y muestra el comprobante.
+
+Flujos alternativos:
+
+1a. Pago de varias facturas en una sola operación:
+ 1a.1 El cliente selecciona múltiples facturas pendientes.
+ 1a.2 El sistema calcula el monto total acumulado.
+ 1a.3 El flujo continúa desde el paso 2 del flujo principal, aplicando el descuento total a la cuenta origen.
+4a. El cliente cancela la confirmación:
+ 4a.1 El sistema descarta la operación.
+ 4a.2 El caso de uso termina sin cambios en la factura ni en la cuenta.
+
+Excepciones:
+
+5a. Saldo o cupo insuficiente: el sistema informa "Saldo insuficiente para realizar el pago" y el caso de uso termina sin cambios.
+1b. Factura ya pagada o inexistente: el sistema informa "La factura no existe o ya fue pagada" y el caso de uso termina.
+6a. Fallo en el proceso de descuento (error técnico): el sistema revierte cualquier cambio parcial (rollback), informa "No fue posible completar el pago. Intente más tarde" y registra el error internamente.
+
+Reglas de negocio referenciadas:
+
+RN-09: Un pago solo puede procesarse sobre una factura en estado "pendiente" o "vencida".
+RN-10: El monto del pago debe corresponder al valor total pendiente de la factura.
+RN-12: La cuenta origen debe tener saldo suficiente (o cupo de sobregiro disponible, si es corriente).
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+ID: CU-07: 
+
+Nombre: Obtener Saldo de Cuenta
+
+Actor primario: Cliente autenticado / Empleado
+
+Actores secundarios: Ninguno
+
+Precondiciones:
+
+El actor está autenticado.
+La cuenta consultada existe y pertenece al cliente autenticado (o el empleado tiene permisos de consulta).
+
+Postcondiciones (éxito):
+
+Se muestra el saldo actual de la cuenta consultada, sin modificar ningún dato.
+
+Flujo principal:
+
+1.El actor selecciona "Consultar saldo".
+2.El actor selecciona o ingresa el número de cuenta a consultar.
+3.El sistema valida que la cuenta exista y pertenezca al cliente (o que el empleado tenga permiso).
+4.El sistema calcula y muestra el saldo disponible.
+
+Flujos alternativos:
+
+2a. El cliente tiene varias cuentas:
+ 2a.1 El sistema muestra la lista de cuentas del cliente (ahorros y corriente).
+ 2a.2 El cliente selecciona la cuenta a consultar.
+ 2a.3 El flujo continúa desde el paso 3 del flujo principal.
+4a. Consulta de saldo consolidado:
+ 4a.1 El actor solicita ver el saldo total de todas sus cuentas.
+ 4a.2 El sistema suma los saldos de todas las cuentas activas del cliente y lo muestra.
+
+Excepciones:
+
+3a. Cuenta inexistente: el sistema informa "La cuenta no existe" y el caso de uso termina.
+3b. Cuenta no pertenece al cliente autenticado: el sistema informa "No tiene autorización para consultar esta cuenta" y el caso de uso termina.
+
+Reglas de negocio referenciadas:
+
+RN-12: El saldo mostrado debe reflejar el saldo disponible, incluyendo cupo de sobregiro si aplica en cuentas corrientes.
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ID: CU-08: 
+
+Nombre: Obtener Pagos por Cliente
+
+Actor primario: Cliente autenticado / Empleado
+
+Actores secundarios: Ninguno
+
+Precondiciones:
+
+El actor está autenticado.
+El cliente sobre el cual se consulta existe en el sistema.
+
+Postcondiciones (éxito):
+
+Se muestra el historial de pagos del cliente, sin modificar ningún dato.
+
+Flujo principal:
+
+1.El actor selecciona "Historial de pagos".
+2.El sistema identifica al cliente autenticado (o el empleado lo selecciona).
+3.El sistema consulta todos los pagos asociados a las cuentas del cliente.
+4.El sistema muestra la lista de pagos con fecha, monto, factura asociada y estado.
+
+Flujos alternativos:
+
+1a. Filtrar por rango de fechas:
+ 1a.1 El actor ingresa una fecha inicial y una fecha final.
+ 1a.2 El sistema filtra los pagos dentro de ese rango y los muestra.
+1b. Filtrar por tipo de servicio o estado del pago:
+ 1b.1 El actor selecciona un filtro adicional (p. ej. solo pagos "reversados").
+ 1b.2 El sistema aplica el filtro sobre el listado de pagos.
+
+Excepciones:
+
+2a. Cliente inexistente: el sistema informa "Cliente no encontrado" y el caso de uso termina.
+3a. Sin pagos registrados: el sistema informa "Este cliente no tiene pagos registrados" y muestra una lista vacía.
+
+Reglas de negocio referenciadas:
+
+No aplica una regla de negocio financiera directa; la consulta respeta las restricciones de autorización del actor sobre los datos del cliente.
+
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+ID: CU-09: 
+
+Nombre: Obtener Facturas por Cliente
+
+Actor primario: Cliente autenticado / Empleado
+
+Actores secundarios: Ninguno
+
+Precondiciones:
+
+El actor está autenticado.
+El cliente sobre el cual se consulta existe en el sistema.
+
+Postcondiciones (éxito):
+
+Se muestra el listado de facturas del cliente, sin modificar ningún dato.
+
+Flujo principal:
+
+1.El actor selecciona "Mis facturas" (o "Consultar facturas de cliente" en el caso del empleado).
+2.El sistema identifica al cliente autenticado (o el empleado lo selecciona).
+3.El sistema consulta todas las facturas asociadas al cliente.
+4.El sistema muestra la lista de facturas con servicio, monto, fecha de vencimiento y estado.
+
+Flujos alternativos:
+
+1a. Filtrar solo facturas pendientes o vencidas:
+ 1a.1 El actor selecciona el filtro "Pendientes".
+ 1a.2 El sistema muestra únicamente las facturas en estado "pendiente" o "vencida".
+1b. Ordenar por fecha de vencimiento:
+ 1b.1 El actor selecciona la opción de ordenar por fecha de vencimiento.
+ 1b.2 El sistema reordena el listado mostrado, priorizando las facturas próximas a vencer.
+
+Excepciones:
+
+2a. Cliente inexistente: el sistema informa "Cliente no encontrado" y el caso de uso termina.
+3a. Sin facturas registradas: el sistema informa "Este cliente no tiene facturas registradas" y muestra una lista vacía.
+
+Reglas de negocio referenciadas:
+
+RN-07: Toda factura debe estar asociada a un cliente existente.
